@@ -14,10 +14,9 @@ namespace WmcTvOrganizer.Process
 {
     public class FileReader
     {
-        private string _tvFolderPath;
-        private DirectoryInfo _recordedTvDirectory;
-        private Dictionary<string, int> _attributeIndexes;
-        private ILog _logger;
+        private readonly DirectoryInfo _recordedTvDirectory;
+        private readonly Dictionary<string, int> _attributeIndexes;
+        private readonly ILog _logger;
 
         public FileReader(string recordedTvPath, ILog logger)
         {
@@ -103,10 +102,9 @@ namespace WmcTvOrganizer.Process
                     attrValue = folder.GetDetailsOf(item, _attributeIndexes["Broadcast date"]);
                     attrValue = CleanString(attrValue, (char)8206);
                     attrValue = CleanString(attrValue, (char)8207);
-                    DateTime dt;
                     if (!string.IsNullOrWhiteSpace(attrValue))
                     {
-                        if (DateTime.TryParse(attrValue, Config.EnUsCulture, DateTimeStyles.AdjustToUniversal, out dt))
+                        if (DateTime.TryParse(attrValue, Config.EnUsCulture, DateTimeStyles.AdjustToUniversal, out DateTime dt))
                         {
                             wmcItem.BroadcastDate = dt;
                         }
@@ -163,7 +161,6 @@ namespace WmcTvOrganizer.Process
                 }
             }
         }
-
 
         private string CleanString(string s, char c)
         {
