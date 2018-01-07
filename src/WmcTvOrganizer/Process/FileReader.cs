@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using log4net;
+
 using Shell32;
+
+using log4net;
 
 using WmcTvOrganizer.Common;
 using WmcTvOrganizer.Model;
@@ -31,7 +33,8 @@ namespace WmcTvOrganizer.Process
                 {"Program description", -1},
                 {"Rerun", -1},
                 {"Date released", -1},
-                {"Genre", -1}
+                {"Genre", -1},
+                {"Protected", -1}
             };
             _logger = logger;
         }
@@ -54,13 +57,13 @@ namespace WmcTvOrganizer.Process
         
         private List<WmcItem> GetEpisodes(DirectoryInfo tvDirectory)
         {
-            Shell32.Folder folder = GetShell32NameSpaceFolder(tvDirectory.FullName);
+            Folder folder = GetShell32NameSpaceFolder(tvDirectory.FullName);
 
             GetAttributeIndexes(folder, _attributeIndexes);
             
             List<WmcItem> wmcItems = new List<WmcItem>();
 
-            foreach (Shell32.FolderItem2 item in folder.Items())
+            foreach (FolderItem2 item in folder.Items())
             {
                 string attrValue = folder.GetDetailsOf(item, _attributeIndexes["File extension"]);
                 if (attrValue.ToLower() == ".wtv")
@@ -109,6 +112,8 @@ namespace WmcTvOrganizer.Process
                         }
                     }
 
+                    wmcItem.Protected = folder.GetDetailsOf(item, _attributeIndexes["Protected"]).ToLower() == "yes";
+                    
                     string genre = folder.GetDetailsOf(item, _attributeIndexes["Genre"]);
                     bool isMovie = genre.ToLower().Contains("movie");
                     attrValue = folder.GetDetailsOf(item, _attributeIndexes["Date released"]);
@@ -116,7 +121,7 @@ namespace WmcTvOrganizer.Process
                     {
                         year = int.MinValue;
                     }
-
+                    
                     if (isMovie || epName == string.Empty && year > 1900)
                     {
                         if (year > 0)
@@ -171,12 +176,12 @@ namespace WmcTvOrganizer.Process
             return s;
         }
 
-        private Shell32.Folder GetShell32NameSpaceFolder(Object folder)
+        private Folder GetShell32NameSpaceFolder(Object folder)
         {
             Type shellAppType = Type.GetTypeFromProgID("Shell.Application");
 
             Object shell = Activator.CreateInstance(shellAppType);
-            return (Shell32.Folder)shellAppType.InvokeMember("NameSpace", System.Reflection.BindingFlags.InvokeMethod, null, shell, new object[] { folder });
+            return (Folder)shellAppType.InvokeMember("NameSpace", System.Reflection.BindingFlags.InvokeMethod, null, shell, new object[] { folder });
         } 
     }   
 }

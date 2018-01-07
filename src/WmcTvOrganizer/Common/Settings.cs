@@ -16,7 +16,7 @@ namespace WmcTvOrganizer.Common
         // setup the singelton
         private static volatile Settings _instance;
         private static object _syncRoot;
-        private const string FileName = "Settings.js";
+        private const string FileName = "Settings.json";
         private static readonly string SettingFileName;
         static Settings()
         {

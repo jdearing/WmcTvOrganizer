@@ -22,6 +22,8 @@ namespace WmcTvOrganizer.Model
         public ItemType Type { get; set; }
         
         public int ReleaseYear { get; set; }
+
+        public bool Protected { get; set; }
     }
 
     public enum ItemType { Unknown = 0, Tv, Movie };
