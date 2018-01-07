@@ -4,7 +4,9 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
+
 using log4net;
+
 using WmcTvOrganizer.Common;
 using WmcTvOrganizer.Model;
 
