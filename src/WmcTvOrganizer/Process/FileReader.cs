@@ -177,7 +177,7 @@ namespace WmcTvOrganizer.Process
         {
             Type shellAppType = Type.GetTypeFromProgID("Shell.Application");
 
-            Object shell = Activator.CreateInstance(shellAppType);
+            object shell = Activator.CreateInstance(shellAppType);
             return (Folder)shellAppType.InvokeMember("NameSpace", System.Reflection.BindingFlags.InvokeMethod, null, shell, new object[] { folder });
         } 
     }   

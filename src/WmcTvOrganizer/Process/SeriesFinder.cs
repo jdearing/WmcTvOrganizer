@@ -88,9 +88,8 @@ namespace WmcTvOrganizer.Process
             }
 
             IEnumerable<IGrouping<string, WmcItem>> distinctSeries = wmcItems.Where(file => file.Type == ItemType.Tv).GroupBy(file => file.Series.TvDbId);
-
-           
-            await ParallelAsync.ForEachAsync(distinctSeries, 5, async (item) =>
+            
+            await distinctSeries.ForEachAsync(5, async (item) =>
                 {
                     WmcItem episode = item.FirstOrDefault();
 
@@ -115,9 +114,8 @@ namespace WmcTvOrganizer.Process
 
             Console.Write("Search for series (0 to skip): ");
             string s = Console.ReadLine();
-            int x = 0;
             TvSeries series = null;
-            if (int.TryParse(s, out x) && x == 0)
+            if (int.TryParse(s, out int x) && x == 0)
             {
                 cont = false;
             }
@@ -158,8 +156,7 @@ namespace WmcTvOrganizer.Process
             bool? ignore = null;
             
             while (!ignore.HasValue)
-            {
-                
+            {   
                 string s = Console.ReadLine();
                 if (s.ToUpper() == "Y")
                 {

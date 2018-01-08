@@ -14,9 +14,9 @@ namespace WmcTvOrganizer.Process
 {
     public class ItemRenamer
     {
-        private string _destinationTvFolder;
-        private string _destinationMovieFolder;
-        private ILog _logger;
+        private readonly string _destinationTvFolder;
+        private readonly string _destinationMovieFolder;
+        private readonly ILog _logger;
 
         public ItemRenamer(string destinationTvFolder, string destinationMovieFolder, ILog logger)
         {
@@ -171,7 +171,7 @@ namespace WmcTvOrganizer.Process
                 Directory.CreateDirectory(path);
             }
 
-            string fileName = string.Format(FileNameFormat, episode.Series.FolderName,
+            string fileName = string.Format(FileNameFormat, episode.Series.FolderName,E:\SourceCode\github\WmcTvOrganizer\src\WmcTvOrganizer\Process\ItemRenamer.cs
                 episode.TvDbEpisode.SeasonNumber.ToString().PadLeft(2, '0'),
                 episode.TvDbEpisode.EpisodeNumber.ToString().PadLeft(2, '0'),
                 CleanFileName(episode.TvDbEpisode.Name));
