@@ -15,13 +15,17 @@ namespace WmcTvOrganizer.Process
     public class ItemRenamer
     {
         private readonly string _destinationTvFolder;
+        private readonly string _destinationProtectedTvFolder;
         private readonly string _destinationMovieFolder;
+        private readonly string _destinationProtectedMovieFolder;
         private readonly ILog _logger;
-
-        public ItemRenamer(string destinationTvFolder, string destinationMovieFolder, ILog logger)
+        
+        public ItemRenamer(string destinationTvFolder, string destinationProtectedTvFolder, string destinationMovieFolder, string destinationProtectedMovieFolder, ILog logger)
         {
             _destinationTvFolder = destinationTvFolder;
+            _destinationProtectedTvFolder = destinationProtectedTvFolder;
             _destinationMovieFolder = destinationMovieFolder;
+            _destinationProtectedMovieFolder = destinationProtectedMovieFolder;
             _logger = logger;
         }
 

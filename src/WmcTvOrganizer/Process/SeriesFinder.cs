@@ -101,9 +101,7 @@ namespace WmcTvOrganizer.Process
                         }
                     }
                 });
-
-           
-            
+ 
             await _settings.Save(_logger);
         }
 
@@ -259,10 +257,8 @@ namespace WmcTvOrganizer.Process
             {
                 return tvSeries.First();
             }
-            else
-            {
-                return null;
-            }
+
+            return null;
         }
 
         private bool IsKnownSeries(string tvDbId, List<TvSeries> knownSeries)
@@ -273,7 +269,6 @@ namespace WmcTvOrganizer.Process
         private TvSeries UserSelectSeries(WmcItem episode, IList<TvSeries> tvSeries)
         {
             Console.WriteLine("Multiple series matches for {0}", episode.Series.WmcName);
-            int x = 0;
             TvSeries tvs = null;
             for (int i = 0; i < tvSeries.Count; i++)
             {
@@ -284,14 +279,15 @@ namespace WmcTvOrganizer.Process
             {
                 Console.Write("Select Series (0 to skip): ");
                 string s = Console.ReadLine();
-                if (int.TryParse(s, out x))
+                if (int.TryParse(s, out int x))
                 {
                     x--;
                     if (x == -1)
                     {
                         break;
                     }
-                    else if (x >= 0 && x < tvSeries.Count)
+
+                    if (x >= 0 && x < tvSeries.Count)
                     {
                         tvs = tvSeries[x];
                     }
@@ -312,8 +308,8 @@ namespace WmcTvOrganizer.Process
                 (items => new TvSeries
                     {
                         WmcName = episode.Series.WmcName,
-                        TvDbId = items.Element("id").Value,
-                        TvDbName = items.Element("SeriesName").Value
+                        TvDbId = items.Element("id")?.Value,
+                        TvDbName = items.Element("SeriesName")?.Value
                         }));
 
             IList<TvSeries> tvs = series as IList<TvSeries> ?? series.ToList();
@@ -346,13 +342,10 @@ namespace WmcTvOrganizer.Process
             if (xdoc != null)
             {
                 string date = (from items in xdoc.Descendants("Items")
-                               select items.Element("Time").Value).First();
-
+                               select items.Element("Time")?.Value).First();
                 
-
                 IEnumerable<string> updated = from el in xdoc.Descendants("Items").Elements("Series") select el.Value; 
-
-
+                
                 foreach (string s in updated)
                 {
                     updateSeries.Add(s);

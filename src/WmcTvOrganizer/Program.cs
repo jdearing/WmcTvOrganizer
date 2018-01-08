@@ -89,7 +89,8 @@ namespace WmcTvOrganizer
             {
                 SeriesFinder finder = new SeriesFinder(settings, Config.Get<string>("UpdateUrl"), Config.Get<string>("SeriesUrl"), Config.Get<string>("EpisodeUrl"), _log);
                 await finder.ProcessEpisodes(wmcItems);
-                ItemRenamer renamer = new ItemRenamer(Config.Get<string>("DestinationTvPath"), Config.Get<string>("DestinationMoviePath"), _log);
+                ItemRenamer renamer = new ItemRenamer(Config.Get<string>("DestinationTvPath"), Config.Get<string>("DestinationProtectedTvPath"), 
+                    Config.Get<string>("DestinationMoviePath"), Config.Get<string>("DestinationProtectedMoviePath"), _log);
                 renamer.ProcessEpisodes(wmcItems);
             }
         }
