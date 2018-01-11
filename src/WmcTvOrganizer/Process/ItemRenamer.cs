@@ -35,23 +35,28 @@ namespace WmcTvOrganizer.Process
             {
                 if (wmcItem.Type == ItemType.Tv && wmcItem.Series != null)
                 {
-                    try
+                    if (wmcItem.TvDbEpisode != null)
                     {
-                        GetEpisodeDetails(wmcItem);
-                    }
-                    catch(Exception ex)
-                    {
-                        _logger.Error("Error getting episode details", ex);
+                        try
+                        {
+                            GetEpisodeDetails(wmcItem);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.Error("Error getting episode details", ex);
+                        }
                     }
 
                     if (wmcItem.TvDbEpisode != null)
                     {
-                        RenameTvFile(_destinationTvFolder, wmcItem, _logger);
+                        string dest = wmcItem.Protected ? _destinationProtectedTvFolder : _destinationTvFolder;
+                        RenameTvFile(dest, wmcItem, _logger);
                     }
                 }
                 else if (wmcItem.Type == ItemType.Movie)
                 {
-                    RenameMovieFile(_destinationMovieFolder, wmcItem, _logger);
+                    string dest = wmcItem.Protected ? _destinationProtectedMovieFolder : _destinationMovieFolder;
+                    RenameMovieFile(dest, wmcItem, _logger);
                 }
             }
         }
@@ -162,7 +167,6 @@ namespace WmcTvOrganizer.Process
 
         private void RenameTvFile(string destinationFolder, WmcItem episode, ILog logger)
         {
-
             string path = Path.Combine(destinationFolder, episode.Series.FolderName);
             if (!Directory.Exists(path))
             {
@@ -217,11 +221,10 @@ namespace WmcTvOrganizer.Process
 
         private void MoveFile(string from, string to, ILog logger)
         {
-            
             logger.InfoFormat("Moving {0} to {1}", from, to);
             try
             {
-                //File.Move(from, to);
+                File.Move(from, to);
             }
             catch (Exception ex)
             {

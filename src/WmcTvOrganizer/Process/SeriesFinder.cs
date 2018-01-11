@@ -33,7 +33,7 @@ namespace WmcTvOrganizer.Process
             _episodeUrl = episodeUrl;
             _logger = logger;
 
-            _title = new Regex(@"s(\d+)e(\d+)\s(.+$)");
+            _title = new Regex(@"s(\d+)e(\d+)\s(.+$)", RegexOptions.Compiled);
         }
 
         public async Task ProcessEpisodes(List<WmcItem> wmcItems)
@@ -83,6 +83,8 @@ namespace WmcTvOrganizer.Process
                             wmcItem.Series = series;
                         }
 
+                        wmcItem.Series.FolderName = CleanFolderName(wmcItem.Series.TvDbName);
+
                         Match match = _title.Match(wmcItem.Title);
                         if (match.Success)
                         {
@@ -101,7 +103,8 @@ namespace WmcTvOrganizer.Process
                 }
             }
 
-            IEnumerable<IGrouping<string, WmcItem>> distinctSeries = wmcItems.Where(file => file.Type == ItemType.Tv).GroupBy(file => file.Series.TvDbId);
+            // find the ones where we could not extract the season and episode from the title
+            IEnumerable<IGrouping<string, WmcItem>> distinctSeries = wmcItems.Where(file => file.Type == ItemType.Tv && file.TvDbEpisode == null).GroupBy(file => file.Series.TvDbId);
             
             await distinctSeries.ForEachAsync(5, async (item) =>
                 {
