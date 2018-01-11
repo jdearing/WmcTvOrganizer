@@ -175,7 +175,7 @@ namespace WmcTvOrganizer.Process
                 Directory.CreateDirectory(path);
             }
 
-            string fileName = string.Format(FileNameFormat, episode.Series.FolderName,E:\SourceCode\github\WmcTvOrganizer\src\WmcTvOrganizer\Process\ItemRenamer.cs
+            string fileName = string.Format(FileNameFormat, episode.Series.FolderName,
                 episode.TvDbEpisode.SeasonNumber.ToString().PadLeft(2, '0'),
                 episode.TvDbEpisode.EpisodeNumber.ToString().PadLeft(2, '0'),
                 CleanFileName(episode.TvDbEpisode.Name));

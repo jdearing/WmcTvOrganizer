@@ -5,6 +5,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
@@ -22,8 +23,8 @@ namespace WmcTvOrganizer.Process
         private readonly string _episodeUrl;
         private readonly Settings _settings;
         private readonly ILog _logger;
-
-
+        private readonly Regex _title;
+        
         public SeriesFinder(Settings settings, string updateUrl, string seriesUrl, string episodeUrl, ILog logger)
         {
             _settings = settings;
@@ -31,6 +32,8 @@ namespace WmcTvOrganizer.Process
             _seriesUrl = seriesUrl;
             _episodeUrl = episodeUrl;
             _logger = logger;
+
+            _title = new Regex(@"s(\d+)e(\d+)\s(.+$)");
         }
 
         public async Task ProcessEpisodes(List<WmcItem> wmcItems)
@@ -79,6 +82,17 @@ namespace WmcTvOrganizer.Process
                         {
                             wmcItem.Series = series;
                         }
+
+                        Match match = _title.Match(wmcItem.Title);
+                        if (match.Success)
+                        {
+                            wmcItem.TvDbEpisode = new TvDbEpisode
+                            {
+                                SeasonNumber = Convert.ToInt32(match.Groups[1].Value),
+                                EpisodeNumber = Convert.ToInt32(match.Groups[2].Value),
+                                Name = match.Groups[3].Value
+                            };
+                        }
                     } 
                     else if (wmcItem.Type == ItemType.Movie)
                     {
@@ -98,7 +112,7 @@ namespace WmcTvOrganizer.Process
                         if (!IsKnownSeries(episode.Series.TvDbId, _settings.TvSeries) || updatedSeries.Contains(episode.Series.TvDbId))
                         {
                             await GetEpisodeData(_episodeUrl, episode, _settings.WorkingDirectory);
-                        }
+                        }   
                     }
                 });
  
