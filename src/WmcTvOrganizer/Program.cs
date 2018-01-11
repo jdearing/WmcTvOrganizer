@@ -93,6 +93,10 @@ namespace WmcTvOrganizer
                     Config.Get<string>("DestinationMoviePath"), Config.Get<string>("DestinationProtectedMoviePath"), _log);
                 renamer.ProcessEpisodes(wmcItems);
             }
+
+            FolderCleaner fc = new FolderCleaner(_log);
+            fc.Process(Config.Get<string>("DestinationTvPath"));
+            fc.Process(Config.Get<string>("DestinationProtectedTvPath"));
         }
 
         private void End()
