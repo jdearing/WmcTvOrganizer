@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using log4net;
 using WmcTvOrganizer.Common;
@@ -56,7 +58,6 @@ namespace WmcTvOrganizer
         {
             if (_program != null)
                 _program.End();
-
         }
 
         private static void OnUnhandledException(object sender, UnhandledExceptionEventArgs args)
@@ -89,14 +90,41 @@ namespace WmcTvOrganizer
             {
                 SeriesFinder finder = new SeriesFinder(settings, Config.Get<string>("UpdateUrl"), Config.Get<string>("SeriesUrl"), Config.Get<string>("EpisodeUrl"), _log);
                 await finder.ProcessEpisodes(wmcItems);
-                ItemRenamer renamer = new ItemRenamer(Config.Get<string>("DestinationTvPath"), Config.Get<string>("DestinationProtectedTvPath"), 
+                ItemRenamer renamer = new ItemRenamer(Config.Get<string>("DestinationTvPath"), Config.Get<string>("DestinationProtectedTvPath"),
                     Config.Get<string>("DestinationMoviePath"), Config.Get<string>("DestinationProtectedMoviePath"), _log);
                 renamer.ProcessEpisodes(wmcItems);
             }
 
-            FolderCleaner fc = new FolderCleaner(_log);
-            fc.Process(Config.Get<string>("DestinationTvPath"));
-            fc.Process(Config.Get<string>("DestinationProtectedTvPath"));
+            RemoveEmptyFolders(new DirectoryInfo(Config.Get<string>("DestinationTvPath")), 0);
+            RemoveEmptyFolders(new DirectoryInfo(Config.Get<string>("DestinationProtectedTvPath")), 0);
+        }
+
+        private void RemoveEmptyFolders(DirectoryInfo directory, int depth)
+        {
+            if (directory.Exists)
+            {
+                foreach (var subDirectory in directory.EnumerateDirectories())
+                {
+                    RemoveEmptyFolders(subDirectory, depth + 1);
+                }
+
+                if (depth > 0)
+                {
+                    var infos = directory.EnumerateFileSystemInfos();
+                    if (!infos.Any())
+                    {
+                        _log.Info($"Removing folder {directory.FullName}");
+                        try
+                        {
+                            directory.Delete();
+                        }
+                        catch (Exception ex)
+                        {
+                            _log.Error($"Error removing folder {directory.FullName}", ex);
+                        }
+                    }
+                }
+            }
         }
 
         private void End()

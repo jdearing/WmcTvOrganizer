@@ -83,17 +83,20 @@ namespace WmcTvOrganizer.Process
                             wmcItem.Series = series;
                         }
 
-                        wmcItem.Series.FolderName = CleanFolderName(wmcItem.Series.TvDbName);
-
-                        Match match = _title.Match(wmcItem.Title);
-                        if (match.Success)
+                        if (wmcItem.Series.TvDbName != null)
                         {
-                            wmcItem.TvDbEpisode = new TvDbEpisode
+                            wmcItem.Series.FolderName = CleanFolderName(wmcItem.Series.TvDbName);
+
+                            Match match = _title.Match(wmcItem.Title);
+                            if (match.Success)
                             {
-                                SeasonNumber = Convert.ToInt32(match.Groups[1].Value),
-                                EpisodeNumber = Convert.ToInt32(match.Groups[2].Value),
-                                Name = match.Groups[3].Value
-                            };
+                                wmcItem.TvDbEpisode = new TvDbEpisode
+                                {
+                                    SeasonNumber = Convert.ToInt32(match.Groups[1].Value),
+                                    EpisodeNumber = Convert.ToInt32(match.Groups[2].Value),
+                                    Name = match.Groups[3].Value
+                                };
+                            }
                         }
                     } 
                     else if (wmcItem.Type == ItemType.Movie)

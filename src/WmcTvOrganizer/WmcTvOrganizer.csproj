@@ -52,7 +52,6 @@
     <Compile Include="Model\TvSeries.cs" />
     <Compile Include="Model\WmcItem.cs" />
     <Compile Include="Process\FileReader.cs" />
-    <Compile Include="Process\FolderCleaner.cs" />
     <Compile Include="Process\ItemRenamer.cs" />
     <Compile Include="Process\SeriesFinder.cs" />
     <Compile Include="Program.cs" />
