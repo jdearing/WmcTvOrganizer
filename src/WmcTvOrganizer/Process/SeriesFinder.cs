@@ -223,7 +223,7 @@ namespace WmcTvOrganizer.Process
 
         public static string CleanFolderName(string folderName)
         {
-            List<char> invalids = new List<char> {':', '!'};
+            List<char> invalids = new List<char> {':', '!', '?'};
             invalids.AddRange(Path.GetInvalidPathChars());
             return string.Join("_", folderName.Split(invalids.ToArray(), StringSplitOptions.RemoveEmptyEntries)).TrimEnd('.');
         }
