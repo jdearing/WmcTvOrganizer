@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,6 +12,8 @@ namespace WmcTvOrganizer.Core
 {
     public class Program
     {
+        public static readonly CultureInfo EnUsCulture = CultureInfo.CreateSpecificCulture("en-US");
+
         public static async Task Main(string[] args)
         {
             var services = new ServiceCollection();
@@ -46,17 +49,19 @@ namespace WmcTvOrganizer.Core
             services.AddSingleton(cts);
 
             
-            //services.Configure<TransfererOptions>(configuration.GetSection("TransfererOptions"));
-            //services.AddSingleton<ITransferer, Transferer>();
+            services.Configure<FileReaderOptions>(configuration.GetSection("FileReaderOptions"));
+            services.AddSingleton<IFileReader, FileReader>();
 
             services.AddTransient<Program>();
         }
 
         private readonly ILogger<Program> _logger;
         private readonly CancellationTokenSource _cancellationTokenSource;
+        private readonly IFileReader _fileReader;
 
-        public Program(ILogger<Program> logger, CancellationTokenSource cancellationTokenSource)
+        public Program(IFileReader fileReader, ILogger<Program> logger, CancellationTokenSource cancellationTokenSource)
         {
+            _fileReader = fileReader;
             _logger = logger;
             _cancellationTokenSource = cancellationTokenSource;
 
@@ -66,6 +71,7 @@ namespace WmcTvOrganizer.Core
         private async Task Run()
         {
             _logger.LogInformation("starting");
+            var files = _fileReader.FindFiles();
             await _cancellationTokenSource.Token.WhenCanceled();
             _logger.LogInformation("exiting");
         }
