@@ -13,6 +13,7 @@ namespace WmcTvOrganizer.Core
     public class Program
     {
         public static readonly CultureInfo EnUsCulture = CultureInfo.CreateSpecificCulture("en-US");
+        public const string TvDbApi = "TvDbApi";
 
         public static async Task Main(string[] args)
         {
@@ -43,14 +44,21 @@ namespace WmcTvOrganizer.Core
                    builder.AddConsole();
                });
 
+            services.AddHttpClient(TvDbApi, c =>
+            {
+                c.BaseAddress = new Uri("https://api.thetvdb.com");
+                //c.DefaultRequestHeaders.Add("Content-Type", "application/json"); 
+            });
+
             services.AddOptions();
 
             CancellationTokenSource cts = new CancellationTokenSource();
             services.AddSingleton(cts);
-
             
             services.Configure<FileReaderOptions>(configuration.GetSection("FileReaderOptions"));
-            services.AddSingleton<IFileReader, FileReader>();
+            services.AddTransient<IFileReader, FileReader>();
+
+            services.AddSingleton<ISettings, Settings>();
 
             services.AddTransient<Program>();
         }
@@ -58,10 +66,12 @@ namespace WmcTvOrganizer.Core
         private readonly ILogger<Program> _logger;
         private readonly CancellationTokenSource _cancellationTokenSource;
         private readonly IFileReader _fileReader;
+        private ISettings _settings;
 
-        public Program(IFileReader fileReader, ILogger<Program> logger, CancellationTokenSource cancellationTokenSource)
+        public Program(IFileReader fileReader, ISettings settings, ILogger<Program> logger, CancellationTokenSource cancellationTokenSource)
         {
             _fileReader = fileReader;
+            _settings = settings;
             _logger = logger;
             _cancellationTokenSource = cancellationTokenSource;
 
@@ -71,7 +81,9 @@ namespace WmcTvOrganizer.Core
         private async Task Run()
         {
             _logger.LogInformation("starting");
+            await _settings.Load();
             var files = _fileReader.FindFiles();
+
             await _cancellationTokenSource.Token.WhenCanceled();
             _logger.LogInformation("exiting");
         }

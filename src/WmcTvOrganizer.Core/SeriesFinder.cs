@@ -5,13 +5,14 @@ using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+
 using WmcTvOrganizer.Core.Models;
 
 namespace WmcTvOrganizer.Core
@@ -21,45 +22,52 @@ namespace WmcTvOrganizer.Core
         private readonly string _seriesUrl;
         private readonly string _updateUrl;
         private readonly string _episodeUrl;
-        private readonly Regex _title;
+        private readonly Regex _seasonEpisode;
         private readonly ILogger<SeriesFinder> _logger;
+        private readonly ISettings _settings;
+        private HttpClient _httpClient;
 
-        public SeriesFinder(IOptions<SeriesFinderOptions> options, ILogger<SeriesFinder> logger, CancellationTokenSource cancellationTokenSource)
+        public SeriesFinder(ISettings settings, IHttpClientFactory httpClientFactory, IOptions<SeriesFinderOptions> options, ILogger<SeriesFinder> logger,
+            CancellationTokenSource cancellationTokenSource)
         {
+            _settings = settings;
             _updateUrl = options.Value.UpdateUrl;
-            _seriesUrl = options.Value.SeriesUrl ;
+            _seriesUrl = options.Value.SeriesUrl;
             _episodeUrl = options.Value.EpisodeUrl;
+
+            _httpClient = httpClientFactory.CreateClient(Program.TvDbApi);
             _logger = logger;
 
-            _title = new Regex(@"s(\d+)e(\d+)\s(.+$)", RegexOptions.Compiled);
+            _seasonEpisode = new Regex(@"s(\d+)e(\d+)\s(.+$)", RegexOptions.Compiled);
         }
 
-        public async Task ProcessEpisodes(List<WmcItem> wmcItems)
+        public async Task ProcessEpisodes(IEnumerable<WmcItem> wmcItems)
         {
-            HashSet<string> updatedSeries = new HashSet<string>();
-            _settings.TvDbLastUpdate = await GetLastDbUpdate(_updateUrl, _settings.TvDbLastUpdate, updatedSeries, _logger);
-            await _settings.Save(_logger);
+            var updatedSeries = new HashSet<string>();
+            _settings.TvDbLastUpdate = await GetLastDbUpdate(_updateUrl, _settings.TvDbLastUpdate, updatedSeries);
+            await _settings.Save();
 
-            foreach (WmcItem wmcItem in wmcItems)
+            var items = wmcItems as WmcItem[] ?? wmcItems.ToArray();
+            foreach (var wmcItem in items)
             {
                 if (!IgnoreWmcItem(wmcItem, _settings.IgnoreItems))
                 {
                     if (wmcItem.Type == ItemType.Tv && !string.IsNullOrEmpty(wmcItem.Series.WmcName))
                     {
-                        TvSeries series = FindKnownSeries(wmcItem, _settings.TvSeries);
+                        var series = FindKnownSeries(wmcItem, _settings.TvSeries);
 
                         if (series == null)
                         {
                             if (!UserIgnore(wmcItem, _settings.IgnoreItems))
                             {
-                                series = await GetSeriesInfo(_seriesUrl, wmcItem, wmcItem.Series.WmcName, _logger);
+                                series = await GetSeriesInfo(_seriesUrl, wmcItem, wmcItem.Series.WmcName);
 
                                 if (series == null)
                                 {
-                                    Tuple<bool, TvSeries> cont = await UserSearchSeries(wmcItem, _seriesUrl, _logger);
+                                    var cont = await UserSearchSeries(wmcItem, _seriesUrl);
                                     while (cont.Item1)
                                     {
-                                        cont = await UserSearchSeries(wmcItem, _seriesUrl, _logger);
+                                        cont = await UserSearchSeries(wmcItem, _seriesUrl);
                                     }
 
                                     series = cont.Item2;
@@ -85,7 +93,7 @@ namespace WmcTvOrganizer.Core
                         {
                             wmcItem.Series.FolderName = CleanFolderName(wmcItem.Series.TvDbName);
 
-                            Match match = _title.Match(wmcItem.Title);
+                            var match = _seasonEpisode.Match(wmcItem.Title);
                             if (match.Success)
                             {
                                 wmcItem.TvDbEpisode = new TvDbEpisode
@@ -105,39 +113,40 @@ namespace WmcTvOrganizer.Core
             }
 
             // find the ones where we could not extract the season and episode from the title
-            IEnumerable<IGrouping<string, WmcItem>> distinctSeries = wmcItems.Where(file => file.Type == ItemType.Tv && file.TvDbEpisode == null).GroupBy(file => file.Series.TvDbId);
+            var distinctSeries = items.Where(file => file.Type == ItemType.Tv && file.TvDbEpisode == null).GroupBy(file => file.Series.TvDbId);
 
-            await distinctSeries.ForEachAsync(5, async (item) =>
+            foreach (var series in distinctSeries)
             {
-                WmcItem episode = item.FirstOrDefault();
+                WmcItem episode = series.FirstOrDefault();
 
-                if (episode != null && episode.Series.TvDbName != null)
+                if (episode?.Series.TvDbName != null)
                 {
                     if (!IsKnownSeries(episode.Series.TvDbId, _settings.TvSeries) || updatedSeries.Contains(episode.Series.TvDbId))
                     {
                         await GetEpisodeData(_episodeUrl, episode, _settings.WorkingDirectory);
                     }
                 }
-            });
+            }
 
-            await _settings.Save(_logger);
+
+            await _settings.Save();
         }
 
-        private async Task<Tuple<bool, TvSeries>> UserSearchSeries(WmcItem wmcItem, string seriesUrl, ILog logger)
+        private async Task<Tuple<bool, TvSeries>> UserSearchSeries(WmcItem wmcItem, string seriesUrl)
         {
-            bool cont = true;
+            var cont = true;
             Console.WriteLine("No series matches for {0}", wmcItem.Series.WmcName);
 
             Console.Write("Search for series (0 to skip): ");
-            string s = Console.ReadLine();
+            var s = Console.ReadLine();
             TvSeries series = null;
-            if (int.TryParse(s, out int x) && x == 0)
+            if (int.TryParse(s, out var x) && x == 0)
             {
                 cont = false;
             }
             else
             {
-                series = await GetSeriesInfo(seriesUrl, wmcItem, s, logger);
+                series = await GetSeriesInfo(seriesUrl, wmcItem, s);
                 if (series != null) cont = false;
             }
 
@@ -146,7 +155,7 @@ namespace WmcTvOrganizer.Core
 
         private bool IgnoreWmcItem(WmcItem wmcItem, List<string> ignoreItems)
         {
-            bool ignore = false;
+            var ignore = false;
             if (wmcItem.Type == ItemType.Tv)
             {
                 ignore = ignoreItems.Contains(wmcItem.Series.WmcName);
@@ -155,6 +164,7 @@ namespace WmcTvOrganizer.Core
             {
                 ignore = ignoreItems.Contains(wmcItem.Title);
             }
+
             return ignore;
         }
 
@@ -173,7 +183,7 @@ namespace WmcTvOrganizer.Core
 
             while (!ignore.HasValue)
             {
-                string s = Console.ReadLine();
+                var s = Console.ReadLine();
                 if (s.ToUpper() == "Y")
                 {
                     ignore = true;
@@ -201,18 +211,18 @@ namespace WmcTvOrganizer.Core
 
         private async Task GetEpisodeData(string episodeUrl, WmcItem episode, DirectoryInfo workingDirectory)
         {
-            string url = string.Format(episodeUrl, episode.Series.TvDbId);
+            var url = string.Format(episodeUrl, episode.Series.TvDbId);
 
             episode.Series.FolderName = CleanFolderName(episode.Series.TvDbName);
-            string path = Path.Combine(workingDirectory.FullName, episode.Series.FolderName);
+            var path = Path.Combine(workingDirectory.FullName, episode.Series.FolderName);
 
-            DirectoryInfo di = new DirectoryInfo(path);
+            var di = new DirectoryInfo(path);
             if (!di.Exists)
             {
                 di.Create();
             }
 
-            FileInfo file = await DownloadEpisodeZip(url, di);
+            var file = await DownloadEpisodeZip(url, di);
             if (file != null)
             {
                 episode.Series.EpisodeDataFile = file.FullName;
@@ -221,26 +231,26 @@ namespace WmcTvOrganizer.Core
 
         public static string CleanFolderName(string folderName)
         {
-            List<char> invalids = new List<char> { ':', '!', '?' };
+            var invalids = new List<char> {':', '!', '?'};
             invalids.AddRange(Path.GetInvalidPathChars());
             return string.Join("_", folderName.Split(invalids.ToArray(), StringSplitOptions.RemoveEmptyEntries)).TrimEnd('.');
         }
 
         private async Task<FileInfo> DownloadEpisodeZip(string url, DirectoryInfo workingDirectory)
         {
-            HttpClient client = new HttpClient();
+            var client = new HttpClient();
             FileInfo fi = null;
             try
             {
-                byte[] body = await client.GetByteArrayAsync(url);
-                string path = Path.Combine(workingDirectory.FullName, "en.zip");
+                var body = await client.GetByteArrayAsync(url);
+                var path = Path.Combine(workingDirectory.FullName, "en.zip");
                 fi = new FileInfo(path);
-                using (FileStream fs = new FileStream(fi.FullName, FileMode.Create, FileAccess.Write))
+                using (var fs = new FileStream(fi.FullName, FileMode.Create, FileAccess.Write))
                 {
                     await fs.WriteAsync(body, 0, body.Length);
                 }
 
-                string extractPath = Path.Combine(fi.DirectoryName, "en");
+                var extractPath = Path.Combine(fi.DirectoryName, "en");
                 if (Directory.Exists(extractPath))
                 {
                     Directory.Delete(extractPath, true);
@@ -269,8 +279,8 @@ namespace WmcTvOrganizer.Core
 
         private TvSeries FindKnownSeries(WmcItem episode, IEnumerable<TvSeries> knownSeries)
         {
-            IEnumerable<TvSeries> ts = (from s in knownSeries where s.WmcName == episode.Series.WmcName select s);
-            IList<TvSeries> tvSeries = ts as IList<TvSeries> ?? ts.ToList();
+            var ts = (from s in knownSeries where s.WmcName == episode.Series.WmcName select s);
+            var tvSeries = ts as IList<TvSeries> ?? ts.ToList();
             if (tvSeries.Any())
             {
                 return tvSeries.First();
@@ -288,7 +298,7 @@ namespace WmcTvOrganizer.Core
         {
             Console.WriteLine("Multiple series matches for {0}", episode.Series.WmcName);
             TvSeries tvs = null;
-            for (int i = 0; i < tvSeries.Count; i++)
+            for (var i = 0; i < tvSeries.Count; i++)
             {
                 Console.WriteLine("{0}: {1}", i + 1, tvSeries[i].TvDbName);
             }
@@ -296,8 +306,8 @@ namespace WmcTvOrganizer.Core
             while (tvs == null)
             {
                 Console.Write("Select Series (0 to skip): ");
-                string s = Console.ReadLine();
-                if (int.TryParse(s, out int x))
+                var s = Console.ReadLine();
+                if (int.TryParse(s, out var x))
                 {
                     x--;
                     if (x == -1)
@@ -315,22 +325,22 @@ namespace WmcTvOrganizer.Core
             return tvs;
         }
 
-        private async Task<TvSeries> GetSeriesInfo(string seriesUrl, WmcItem episode, string searchName, ILog logger)
+        private async Task<TvSeries> GetSeriesInfo(string seriesUrl, WmcItem episode, string searchName)
         {
             TvSeries tvSeries = null;
 
-            string url = string.Format(seriesUrl, WebUtility.UrlEncode(searchName));
-            XDocument xdoc = await GetXmlDoc(url, logger);
+            var url = string.Format(seriesUrl, WebUtility.UrlEncode(searchName));
+            var xdoc = await GetXmlDoc(url);
 
-            IEnumerable<TvSeries> series = (xdoc.Descendants("Series").Select
-                (items => new TvSeries
-                {
-                    WmcName = episode.Series.WmcName,
-                    TvDbId = items.Element("id")?.Value,
-                    TvDbName = items.Element("SeriesName")?.Value
-                }));
+            var series = (xdoc.Descendants("Series").Select
+            (items => new TvSeries
+            {
+                WmcName = episode.Series.WmcName,
+                TvDbId = items.Element("id")?.Value,
+                TvDbName = items.Element("SeriesName")?.Value
+            }));
 
-            IList<TvSeries> tvs = series as IList<TvSeries> ?? series.ToList();
+            var tvs = series as IList<TvSeries> ?? series.ToList();
             if (tvs.Count == 1 && episode.Series.WmcName == tvs[0].TvDbName)
             {
                 tvSeries = tvs[0];
@@ -343,9 +353,9 @@ namespace WmcTvOrganizer.Core
             return tvSeries;
         }
 
-        private async Task<int> GetLastDbUpdate(string updateUrl, int last, HashSet<string> updateSeries, ILog logger)
+        private async Task<int> GetLastDbUpdate(string updateUrl, int last, HashSet<string> updateSeries)
         {
-            string url = updateUrl;
+            var url = updateUrl;
             if (last == 0)
             {
                 url = string.Format(updateUrl, "none", string.Empty);
@@ -355,16 +365,16 @@ namespace WmcTvOrganizer.Core
                 url = string.Format(updateUrl, "series", last);
             }
 
-            int lastUpdate = 0;
-            XDocument xdoc = await GetXmlDoc(url, logger);
+            var lastUpdate = 0;
+            var xdoc = await GetXmlDoc(url);
             if (xdoc != null)
             {
-                string date = (from items in xdoc.Descendants("Items")
-                               select items.Element("Time")?.Value).First();
+                var date = (from items in xdoc.Descendants("Items")
+                    select items.Element("Time")?.Value).First();
 
-                IEnumerable<string> updated = from el in xdoc.Descendants("Items").Elements("Series") select el.Value;
+                var updated = from el in xdoc.Descendants("Items").Elements("Series") select el.Value;
 
-                foreach (string s in updated)
+                foreach (var s in updated)
                 {
                     updateSeries.Add(s);
                 }
@@ -372,13 +382,14 @@ namespace WmcTvOrganizer.Core
                 int.TryParse(date, out lastUpdate);
 
             }
+
             return lastUpdate;
         }
 
-        private async Task<XDocument> GetXmlDoc(string url, ILog logger)
+        private async Task<XDocument> GetXmlDoc(string url)
         {
             XDocument xdoc = null;
-            HttpClient client = new HttpClient();
+            var client = new HttpClient();
             string responseBody = null;
             try
             {
@@ -386,7 +397,7 @@ namespace WmcTvOrganizer.Core
             }
             catch (HttpRequestException ex)
             {
-                logger.Error("Error getting data from " + url, ex);
+                _logger.LogError(ex, "Error getting data from " + url);
             }
             finally
             {
@@ -401,7 +412,7 @@ namespace WmcTvOrganizer.Core
                 }
                 catch (Exception ex)
                 {
-                    logger.Error("Error parsing xml response", ex);
+                    _logger.LogError(ex, "Error parsing xml response");
                 }
             }
 
@@ -415,5 +426,4 @@ namespace WmcTvOrganizer.Core
         public string SeriesUrl { get; set; }
         public string EpisodeUrl { get; set; }
     }
-}
 }

@@ -14,14 +14,14 @@ using WmcTvOrganizer.Core.Models;
 
 namespace WmcTvOrganizer.Core
 {
-    public class Settings
+    public class Settings : ISettings
     {
         private const string FileName = "Settings.json";
-        private readonly string _settingFileName;
         private CancellationTokenSource _cancellationTokenSource;
         private readonly ILogger<Settings> _logger;
+        private readonly FileInfo _file;
 
-        private Settings(ILogger<Settings> logger, CancellationTokenSource cancellationTokenSource)
+        public Settings(ILogger<Settings> logger, CancellationTokenSource cancellationTokenSource)
         {
             _logger = logger;
             _cancellationTokenSource = cancellationTokenSource;
@@ -29,9 +29,10 @@ namespace WmcTvOrganizer.Core
             TvDbLastUpdate = 0;
             TvSeries = new List<TvSeries>();
             IgnoreItems = new List<string>();
-            string assemblyTitle = ((AssemblyTitleAttribute)Attribute.GetCustomAttribute(Assembly.GetExecutingAssembly(), typeof(AssemblyTitleAttribute), false)).Title;
-            string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), assemblyTitle);
-            _settingFileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), assemblyTitle, FileName);
+            var assemblyTitle = ((AssemblyTitleAttribute)Attribute.GetCustomAttribute(Assembly.GetExecutingAssembly(), typeof(AssemblyTitleAttribute), false)).Title;
+            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), assemblyTitle);
+            var fileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), assemblyTitle, FileName);
+            _file = new FileInfo(fileName);
             WorkingDirectory = new DirectoryInfo(folder);
             if (!WorkingDirectory.Exists)
             {
@@ -45,22 +46,19 @@ namespace WmcTvOrganizer.Core
 
         public List<string> IgnoreItems { get; set; }
 
-        public DirectoryInfo WorkingDirectory
-        {
-            get; private set;
-        }
-
+        public DirectoryInfo WorkingDirectory { get; set; }
+    
         public async Task Save()
         {
-            string s = JsonConvert.SerializeObject(this, Newtonsoft.Json.Formatting.Indented);
+            var s = JsonConvert.SerializeObject(this, Newtonsoft.Json.Formatting.Indented);
             try
             {
-                FileInfo fi = new FileInfo(_settingFileName);
-                if (fi.Directory != null && !fi.Directory.Exists)
+                if (_file.Directory != null && !_file.Directory.Exists)
                 {
-                    fi.Directory.Create();
+                    _file.Directory.Create();
                 }
-                using (StreamWriter sw = new StreamWriter(_settingFileName))
+
+                using (var sw = new StreamWriter(_file.FullName))
                 {
                     await sw.WriteAsync(s);
                 }
@@ -73,16 +71,18 @@ namespace WmcTvOrganizer.Core
 
         public async Task Load()
         {
-            Settings us = null;
-
-            if (File.Exists(_settingFileName))
+            if (_file.Exists)
             {
                 try
                 {
-                    using (StreamReader sr = new StreamReader(_settingFileName))
+                    using (var sr = _file.OpenText())
                     {
-                        string s = await sr.ReadToEndAsync();
-                        this = JsonConvert.DeserializeObject<Settings>(s);
+                        var s = await sr.ReadToEndAsync();
+                        var settings = JsonConvert.DeserializeObject<Settings>(s);
+                        TvDbLastUpdate = settings.TvDbLastUpdate;
+                        TvSeries = settings.TvSeries;
+                        WorkingDirectory = settings.WorkingDirectory;
+                        IgnoreItems = settings.IgnoreItems;
                     }
                 }
                 catch (Exception ex)
@@ -91,5 +91,15 @@ namespace WmcTvOrganizer.Core
                 }
             }
         }
+    }
+
+    public interface ISettings
+    {
+        Task Load();
+        Task Save();
+        int TvDbLastUpdate { get; set; }
+        List<TvSeries> TvSeries { get; set; }
+        List<string> IgnoreItems { get; set; }
+        DirectoryInfo WorkingDirectory { get; set; }
     }
 }
