@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using Newtonsoft.Json;
 
 namespace WmcTvOrganizer.Core.Models
 {
@@ -9,6 +10,7 @@ namespace WmcTvOrganizer.Core.Models
 
         public string Title { get; set; }
         
+        [JsonIgnore]
         public FileInfo File { get; set; }
         
         public DateTime BroadcastDate { get; set; }

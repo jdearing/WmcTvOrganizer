@@ -20,33 +20,32 @@ namespace WmcTvOrganizer.Core
         private CancellationTokenSource _cancellationTokenSource;
         private readonly ILogger<Settings> _logger;
         private readonly FileInfo _file;
+        private DirectoryInfo _workingFolder;
 
         public Settings(ILogger<Settings> logger, CancellationTokenSource cancellationTokenSource)
         {
             _logger = logger;
             _cancellationTokenSource = cancellationTokenSource;
 
-            TvDbLastUpdate = 0;
             TvSeries = new List<TvSeries>();
             IgnoreItems = new List<string>();
             var assemblyTitle = ((AssemblyTitleAttribute)Attribute.GetCustomAttribute(Assembly.GetExecutingAssembly(), typeof(AssemblyTitleAttribute), false)).Title;
-            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), assemblyTitle);
+            WorkingDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), assemblyTitle);
             var fileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), assemblyTitle, FileName);
             _file = new FileInfo(fileName);
-            WorkingDirectory = new DirectoryInfo(folder);
-            if (!WorkingDirectory.Exists)
+            _workingFolder = new DirectoryInfo(WorkingDirectory);
+            if (!_workingFolder.Exists)
             {
-                WorkingDirectory.Create();
+                _workingFolder.Create();
             }
         }
 
-        public int TvDbLastUpdate { get; set; }
+        
+        public IList<TvSeries> TvSeries { get; private set; }
 
-        public List<TvSeries> TvSeries { get; set; }
+        public IList<string> IgnoreItems { get; private set; }
 
-        public List<string> IgnoreItems { get; set; }
-
-        public DirectoryInfo WorkingDirectory { get; set; }
+        public string WorkingDirectory { get; private set; }
     
         public async Task Save()
         {
@@ -79,7 +78,6 @@ namespace WmcTvOrganizer.Core
                     {
                         var s = await sr.ReadToEndAsync();
                         var settings = JsonConvert.DeserializeObject<Settings>(s);
-                        TvDbLastUpdate = settings.TvDbLastUpdate;
                         TvSeries = settings.TvSeries;
                         WorkingDirectory = settings.WorkingDirectory;
                         IgnoreItems = settings.IgnoreItems;
@@ -97,9 +95,8 @@ namespace WmcTvOrganizer.Core
     {
         Task Load();
         Task Save();
-        int TvDbLastUpdate { get; set; }
-        List<TvSeries> TvSeries { get; set; }
-        List<string> IgnoreItems { get; set; }
-        DirectoryInfo WorkingDirectory { get; set; }
+        IList<TvSeries> TvSeries { get; }
+        IList<string> IgnoreItems { get;  }
+        string WorkingDirectory { get; }
     }
 }

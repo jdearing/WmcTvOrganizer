@@ -44,12 +44,6 @@ namespace WmcTvOrganizer.Core
                    builder.AddConsole();
                });
 
-            services.AddHttpClient(TvDbApi, c =>
-            {
-                c.BaseAddress = new Uri("https://api.thetvdb.com");
-                //c.DefaultRequestHeaders.Add("Content-Type", "application/json"); 
-            });
-
             services.AddOptions();
 
             CancellationTokenSource cts = new CancellationTokenSource();
@@ -58,6 +52,12 @@ namespace WmcTvOrganizer.Core
             services.Configure<FileReaderOptions>(configuration.GetSection("FileReaderOptions"));
             services.AddTransient<IFileReader, FileReader>();
 
+            services.Configure<SeriesFinderOptions>(configuration.GetSection("SeriesFinderOptions"));
+            services.AddTransient<ISeriesFinder, SeriesFinder>();
+
+            services.Configure<TvDbClientOptions>(configuration.GetSection("TvDbClientOptions"));
+            services.AddHttpClient<TvDbClient>();
+            
             services.AddSingleton<ISettings, Settings>();
 
             services.AddTransient<Program>();
@@ -67,10 +67,12 @@ namespace WmcTvOrganizer.Core
         private readonly CancellationTokenSource _cancellationTokenSource;
         private readonly IFileReader _fileReader;
         private ISettings _settings;
+        private ISeriesFinder _seriesFinder;
 
-        public Program(IFileReader fileReader, ISettings settings, ILogger<Program> logger, CancellationTokenSource cancellationTokenSource)
+        public Program(IFileReader fileReader, ISeriesFinder seriesFinder, ISettings settings, ILogger<Program> logger, CancellationTokenSource cancellationTokenSource)
         {
             _fileReader = fileReader;
+            _seriesFinder = seriesFinder;
             _settings = settings;
             _logger = logger;
             _cancellationTokenSource = cancellationTokenSource;
@@ -83,7 +85,7 @@ namespace WmcTvOrganizer.Core
             _logger.LogInformation("starting");
             await _settings.Load();
             var files = _fileReader.FindFiles();
-
+            await _seriesFinder.ProcessEpisodes(files);
             await _cancellationTokenSource.Token.WhenCanceled();
             _logger.LogInformation("exiting");
         }
