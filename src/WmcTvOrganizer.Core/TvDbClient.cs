@@ -32,7 +32,7 @@ namespace WmcTvOrganizer.Core
                 : throw new ArgumentNullException(nameof(options.Value.ApiKey));
 
             _userKey = !string.IsNullOrEmpty(options.Value.UserKey)
-                ? options.Value.ApiKey
+                ? options.Value.UserKey
                 : throw new ArgumentNullException(nameof(options.Value.UserKey));
 
             _username = !string.IsNullOrEmpty(options.Value.Username)
@@ -41,10 +41,10 @@ namespace WmcTvOrganizer.Core
 
             _httpClient.BaseAddress = new Uri(options.Value.BaseAddress);
             _httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
-
-            _logger = logger;
+            _httpClient.DefaultRequestHeaders.Add("User-Agent", "WmcTvOrganizer.Core/1.0.0");
+            
+              _logger = logger;
             _cancellationToken = cancellationTokenSource.Token;
-
         }
 
         public async Task<JsonDocument> SearchSeries(string name)
@@ -54,9 +54,17 @@ namespace WmcTvOrganizer.Core
                 throw new ArgumentNullException(nameof(name));
             }
 
-            var request = new HttpRequestMessage(HttpMethod.Get, $"search/series?{WebUtility.UrlEncode(name)}");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"search/series?name={WebUtility.UrlEncode(name)}");
 
-            return await MakeRequest(request, true);
+            var doc = await MakeRequest(request, true);
+            var series = doc.RootElement.GetProperty("data").EnumerateArray();
+
+            foreach (var seriesElement in series)
+            {
+                int i = 0;
+            }
+
+            return doc;
         }
 
         private async Task<string> GetToken()
@@ -76,7 +84,6 @@ namespace WmcTvOrganizer.Core
             }
 
             var request = new HttpRequestMessage(HttpMethod.Post, "login") {Content = payload};
-            request.Headers.Add("Content-Type", "application/json");
             var doc = await MakeRequest(request, false);
             return doc.RootElement.GetProperty("token").GetString();
 
@@ -114,7 +121,6 @@ namespace WmcTvOrganizer.Core
         public string ApiKey { get; set; }
         public string UserKey { get; set; }
         public string Username { get; set; }
-
         public string BaseAddress { get; set; } = "https://api.thetvdb.com";
 
     }

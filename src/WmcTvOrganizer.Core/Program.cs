@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Globalization;
 using System.IO;
+using System.Net;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -56,8 +58,12 @@ namespace WmcTvOrganizer.Core
             services.AddTransient<ISeriesFinder, SeriesFinder>();
 
             services.Configure<TvDbClientOptions>(configuration.GetSection("TvDbClientOptions"));
-            services.AddHttpClient<TvDbClient>();
-            
+            services.AddHttpClient<TvDbClient>().ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+            {
+                AllowAutoRedirect = true,
+                AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip
+            });
+
             services.AddSingleton<ISettings, Settings>();
 
             services.AddTransient<Program>();
