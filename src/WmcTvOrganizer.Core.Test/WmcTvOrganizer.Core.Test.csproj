@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\src\WmcTvOrganizer.Core\WmcTvOrganizer.Core.csproj" />
+    <ProjectReference Include="..\WmcTvOrganizer.Core\WmcTvOrganizer.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
